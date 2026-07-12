@@ -1,29 +1,21 @@
 pipeline {
     agent any
     stages {
-        stage('w/o docker') {
-            steps {
-                sh '''
-                    echo without docker...
-                    ls -ltra
-                    touch no_container.txt
-                    ls -ltra
-                '''
+        agent {
+            docker {
+                image 'node:18-alpine'
+                reuseNode true
             }
         }
-        stage('with docker') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                }
-            }
+        stage('Build') {
             steps {
                 sh '''
-                    echo with docker...
-                    ls -ltra
-                    touch container.txt
-                    ls -ltra
+                    ls -la
+                    node --version
+                    npm --version
+                    npm ci
+                    npm run build
+                    ls -la
                 '''
             }
         }
