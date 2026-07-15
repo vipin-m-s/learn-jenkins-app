@@ -80,8 +80,10 @@ pipeline {
             steps {
                 sh '''
                 npm install -g netlify-cli@20.1.1
-                netlify --version
+                node_modules/.bin/netlify --version
                 echo "deploying to prod.... ${NETLIFY_SITE_ID}
+                node_modules/.bin/netlify status
+                node_modules/.bin/netlify deploy --dir=build --prod
                 '''
                 
             }
