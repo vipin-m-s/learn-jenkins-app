@@ -18,7 +18,7 @@ pipeline {
                 sh '''
                     npm cache clean --force
                     rm -rf node_modules
-                    rm -rf .npm
+                    rm -rf ~/.npm
                     npm install --no-audit --no-fund
                     npm run build
                 '''
@@ -80,7 +80,7 @@ pipeline {
             }
             steps {
                 sh '''
-                npm install -g netlify-cli@20.1.1
+                npm install netlify-cli@20.1.1
                 node_modules/.bin/netlify --version
                 echo "deploying to stage.... ${NETLIFY_SITE_ID}"
                 node_modules/.bin/netlify status
@@ -107,7 +107,7 @@ pipeline {
             }
             steps {
                 sh '''
-                npm install -g netlify-cli@20.1.1
+                npm install netlify-cli@20.1.1
                 node_modules/.bin/netlify --version
                 echo "deploying to prod.... ${NETLIFY_SITE_ID}"
                 node_modules/.bin/netlify status
