@@ -3,11 +3,11 @@ pipeline {
 
     environment {
         NETLIFY_SITE_ID = '4cfa7aa8-e9c4-4f2f-9192-7b6c125a81cd'
-        NETLIFY_AUTH_TOKEN = credentials('NETLIFT_PAT')
+        // FIXED: Typo in credential ID (NETLIFT -> NETLIFY)
+        NETLIFY_AUTH_TOKEN = credentials('NETLIFY_PAT')
     }
 
     stages {
-
         stage('Build') {
             agent {
                 docker {
@@ -17,12 +17,15 @@ pipeline {
             }
             steps {
                 sh '''
-                    ls -la
-                    node --version
-                    npm --version
-                    npm ci
+                    # FIXED: Added deep cleanup to fix the TAR_ENTRY_ERRORs and bfj missing module
+                    npm cache clean --force
+                    rm -rf node_modules
+                    rm -rf ~/.npm
+                    rm -f package-lock.json
+                    
+                    # FIXED: Using install instead of ci after wiping the lockfile
+                    npm install --no-audit --no-fund
                     npm run build
-                    ls -la
                 '''
             }
         }
@@ -39,7 +42,6 @@ pipeline {
 
                     steps {
                         sh '''
-                            #test -f build/index.html
                             npm test
                         '''
                     }
@@ -60,8 +62,8 @@ pipeline {
 
                     steps {
                         sh '''
-                            npm install serve
-                            node_modules/.bin/serve -s build &
+                            # FIXED: Replaced 'npm install serve' with npx to prevent parallel stage corruption
+                            npx serve -s build &
                             sleep 10
                             npx playwright test  --reporter=html
                         '''
@@ -85,7 +87,8 @@ pipeline {
             }
             steps {
                 sh '''
-                    npm install netlify-cli
+                    # Ensure Netlify is installed locally in the workspace
+                    npm install netlify-cli@20.1.1
                     node_modules/.bin/netlify --version
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     node_modules/.bin/netlify status
