@@ -11,7 +11,7 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'node:18'
                     reuseNode true
                 }
             }
@@ -35,7 +35,7 @@ pipeline {
                 stage('Unit tests') {
                     agent {
                         docker {
-                            image 'node:18-alpine'
+                            image 'node:18'
                             reuseNode true
                         }
                     }
@@ -78,10 +78,72 @@ pipeline {
             }
         }
 
+        stage('Stage') {
+            agent {
+                docker {
+                    image 'node:18'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    # Ensure Netlify is installed locally in the workspace
+                    npm install netlify-cli@20.1.1
+                    npm install node-jq
+                    node_modules/.bin/netlify --version
+                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                    node_modules/.bin/netlify status
+                    node_modules/.bin/netlify deploy --dir=build --json > deploy-output.txt
+                '''
+            }
+            script {
+                env.STAGE_DEPLOY_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' deploy-output.txt", returnStdout: true)
+            }
+        }
+
+        stage('Stage E2E') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    reuseNode true
+                }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = ${env.STAGE_DEPLOY_URL}
+            }
+
+            steps {
+                sh '''
+                    npx playwright test  --reporter=html
+                '''
+            }
+
+            post {
+                always {
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Staging Playwright E2E', reportTitles: '', useWrapperFileDirectly: true])
+                }
+            }
+        }
+
+        stage('Approval') {
+            agent {
+                docker {
+                    image 'node:18'
+                    reuseNode true
+                }
+            }
+            steps {
+                timeout(time:1 , unit: "MINUTES") {
+                    input message: "Deploy to prod?",ok: "Are you sure?"
+                }
+            }
+        }
+
         stage('Deploy') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'node:18'
                     reuseNode true
                 }
             }
