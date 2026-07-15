@@ -19,7 +19,6 @@ pipeline {
                     npm cache clean --force
                     rm -rf node_modules
                     rm -rf .npm
-                    // npm ci
                     npm install --no-audit --no-fund
                     npm run build
                 '''
@@ -95,6 +94,9 @@ pipeline {
                     image 'node:18-alpine'
                     reuseNode true
                 }
+            }
+            environment {
+                CI_ENVIRONMENT_URL="https://glittery-heliotrope-717dbe.netlify.app"
             }
             steps {
                 sh '''
