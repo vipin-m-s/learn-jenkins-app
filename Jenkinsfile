@@ -4,7 +4,7 @@ pipeline {
     environment {
         NETLIFY_SITE_ID = '4cfa7aa8-e9c4-4f2f-9192-7b6c125a81cd'
         // FIXED: Typo in credential ID (NETLIFT -> NETLIFY)
-        NETLIFY_AUTH_TOKEN = credentials('NETLIFY_PAT')
+        NETLIFY_AUTH_TOKEN = credentials('NETLIFT_PAT')
     }
 
     stages {
