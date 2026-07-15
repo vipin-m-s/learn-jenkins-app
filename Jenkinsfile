@@ -16,9 +16,6 @@ pipeline {
             }
             steps {
                 sh '''
-                    npm cache clean --force
-                    rm -rf node_modules
-                    rm -rf .npm
                     npm install --no-audit --no-fund
                     npm run build
                 '''
