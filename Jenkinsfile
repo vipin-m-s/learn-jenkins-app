@@ -19,7 +19,8 @@ pipeline {
                     npm cache clean --force
                     rm -rf node_modules
                     rm -rf .npm
-                    npm ci
+                    // npm ci
+                    npm install --no-audit --no-fund
                     npm run build
                 '''
             }
@@ -69,7 +70,8 @@ pipeline {
                 }
             }
         }
-        stage('Deploy') {
+
+        stage('Deploy prod') {
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -83,6 +85,20 @@ pipeline {
                 echo "deploying to prod.... ${NETLIFY_SITE_ID}"
                 node_modules/.bin/netlify status
                 node_modules/.bin/netlify deploy --dir=build --prod
+                '''
+                
+            }
+        }
+        stage('Post deploy test') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    npx playwright test --reporter=html
                 '''
                 
             }
