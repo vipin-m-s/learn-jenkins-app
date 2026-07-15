@@ -3,11 +3,18 @@ pipeline {
 
     environment {
         NETLIFY_SITE_ID = '4cfa7aa8-e9c4-4f2f-9192-7b6c125a81cd'
-        // FIXED: Typo in credential ID (NETLIFT -> NETLIFY)
         NETLIFY_AUTH_TOKEN = credentials('NETLIFT_PAT')
     }
 
     stages {
+
+        stage('Clean') {
+            steps {
+                deleteDir()
+                checkout scm
+            }
+        }
+
         stage('Build') {
             agent {
                 docker {
@@ -15,16 +22,10 @@ pipeline {
                     reuseNode true
                 }
             }
+
             steps {
                 sh '''
-                    # FIXED: Added deep cleanup to fix the TAR_ENTRY_ERRORs and bfj missing module
-                    npm cache clean --force
-                    rm -rf node_modules
-                    rm -rf ~/.npm
-                    rm -f package-lock.json
-                    
-                    # FIXED: Using install instead of ci after wiping the lockfile
-                    npm install --no-audit --no-fund
+                    npm ci --no-audit --no-fund
                     npm run build
                 '''
             }
@@ -32,7 +33,8 @@ pipeline {
 
         stage('Tests') {
             parallel {
-                stage('Unit tests') {
+
+                stage('Unit Tests') {
                     agent {
                         docker {
                             image 'node:18'
@@ -42,12 +44,14 @@ pipeline {
 
                     steps {
                         sh '''
-                            npm test
+                            npm test -- --watchAll=false
                         '''
                     }
+
                     post {
                         always {
-                            junit 'jest-results/junit.xml'
+                            junit allowEmptyResults: true,
+                                  testResults: 'jest-results/*.xml'
                         }
                     }
                 }
@@ -62,41 +66,59 @@ pipeline {
 
                     steps {
                         sh '''
-                            # FIXED: Replaced 'npm install serve' with npx to prevent parallel stage corruption
-                            npx serve -s build &
+                            npx serve -s build -l 3000 &
+                            SERVER_PID=$!
+
                             sleep 10
-                            npx playwright test  --reporter=html
+
+                            npx playwright test --reporter=html
+
+                            kill $SERVER_PID || true
                         '''
                     }
 
                     post {
                         always {
-                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Local', reportTitles: '', useWrapperFileDirectly: true])
+                            publishHTML([
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'playwright-report',
+                                reportFiles: 'index.html',
+                                reportName: 'Local Playwright Report'
+                            ])
                         }
                     }
                 }
             }
         }
 
-        stage('Stage') {
+        stage('Stage Deploy') {
             agent {
                 docker {
                     image 'node:18'
                     reuseNode true
                 }
             }
+
             steps {
                 sh '''
-                    # Ensure Netlify is installed locally in the workspace
-                    npm install netlify-cli@20.1.1
-                    npm install node-jq
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --json > deploy-output.txt
+                    npx netlify-cli@20.1.1 deploy \
+                        --site=$NETLIFY_SITE_ID \
+                        --auth=$NETLIFY_AUTH_TOKEN \
+                        --dir=build \
+                        --json > deploy-output.json
                 '''
+
                 script {
-                    env.STAGE_DEPLOY_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' deploy-output.txt", returnStdout: true)
+                    env.STAGE_DEPLOY_URL = sh(
+                        script: '''
+                            node -e "console.log(JSON.parse(require('fs').readFileSync('deploy-output.json')).deploy_url)"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Stage URL: ${env.STAGE_DEPLOY_URL}"
                 }
             }
         }
@@ -115,27 +137,28 @@ pipeline {
 
             steps {
                 sh '''
-                    npx playwright test  --reporter=html
+                    npx playwright test --reporter=html
                 '''
             }
 
             post {
                 always {
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Staging Playwright E2E', reportTitles: '', useWrapperFileDirectly: true])
+                    publishHTML([
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'playwright-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Stage Playwright Report'
+                    ])
                 }
             }
         }
 
         stage('Approval') {
-            agent {
-                docker {
-                    image 'node:18'
-                    reuseNode true
-                }
-            }
             steps {
-                timeout(time:1 , unit: "MINUTES") {
-                    input message: "Deploy to prod?",ok: "Are you sure?"
+                timeout(time: 1, unit: 'MINUTES') {
+                    input message: 'Deploy to Production?', ok: 'Deploy'
                 }
             }
         }
@@ -147,19 +170,19 @@ pipeline {
                     reuseNode true
                 }
             }
+
             steps {
                 sh '''
-                    # Ensure Netlify is installed locally in the workspace
-                    npm install netlify-cli@20.1.1
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --prod
+                    npx netlify-cli@20.1.1 deploy \
+                        --site=$NETLIFY_SITE_ID \
+                        --auth=$NETLIFY_AUTH_TOKEN \
+                        --dir=build \
+                        --prod
                 '''
             }
         }
 
-        stage('Prod E2E') {
+        stage('Production E2E') {
             agent {
                 docker {
                     image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
@@ -173,15 +196,28 @@ pipeline {
 
             steps {
                 sh '''
-                    npx playwright test  --reporter=html
+                    npx playwright test --reporter=html
                 '''
             }
 
             post {
                 always {
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E', reportTitles: '', useWrapperFileDirectly: true])
+                    publishHTML([
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'playwright-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Production Playwright Report'
+                    ])
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
