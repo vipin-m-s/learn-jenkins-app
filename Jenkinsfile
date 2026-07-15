@@ -70,6 +70,34 @@ pipeline {
             }
         }
 
+
+        stage('Deploy stage') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                npm install -g netlify-cli@20.1.1
+                node_modules/.bin/netlify --version
+                echo "deploying to stage.... ${NETLIFY_SITE_ID}"
+                node_modules/.bin/netlify status
+                node_modules/.bin/netlify deploy --dir=build
+                '''
+                
+            }
+        }
+
+        stage ('Confirmation') {
+            steps {
+                timeout(time: 1, unit: 'MINUTES') {
+                    input message: 'Deploy to prod?', ok: 'Are you sure?'
+                }
+            }
+        }
+
         stage('Deploy prod') {
             agent {
                 docker {
@@ -88,6 +116,7 @@ pipeline {
                 
             }
         }
+
         stage('Post deploy test') {
             agent {
                 docker {
@@ -104,6 +133,11 @@ pipeline {
                 '''
                 
             }
+        }
+    }
+    post {
+        always {
+            cleanWs()
         }
     }
 }
