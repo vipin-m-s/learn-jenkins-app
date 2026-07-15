@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         NETLIFY_SITE_ID = "4cfa7aa8-e9c4-4f2f-9192-7b6c125a81cd"
+        NETLIFY_AUTH_TOKEN = credentials('NETLIFY_PAT')
     }
 
     stages {
@@ -37,9 +38,6 @@ pipeline {
                         sh '''
                             ls -ltra
                             test -f build/index.html
-                            node --version
-                            npm --version
-                            npm ci
                             npm test
                             ls -ltra
                         '''
