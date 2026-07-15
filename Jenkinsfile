@@ -79,7 +79,7 @@ pipeline {
             }
             steps {
                 sh '''
-                npm install netlif-cli@20.1.1
+                npm install -g netlify-cli@20.1.1
                 netlify --version
                 echo "deploying to prod.... ${NETLIFY_SITE_ID}
                 '''
