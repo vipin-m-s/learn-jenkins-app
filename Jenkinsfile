@@ -107,8 +107,8 @@ pipeline {
         stage('Deploy staging') {
             agent {
                 docker {
-                    image "amazon/aws-cli:2.35.23"
-                    args "--entrypoint=''"
+                    image 'my-playwright'
+                    reuseNode true
                 }
             }
 
@@ -137,8 +137,8 @@ pipeline {
         stage('Deploy prod') {
             agent {
                 docker {
-                    image 'my-playwright'
-                    reuseNode true
+                    image "amazon/aws-cli:2.35.23"
+                    args "--entrypoint=''"
                 }
             }
 
@@ -155,6 +155,29 @@ pipeline {
                         npx playwright test  --reporter=html
                     '''
                 }
+            }
+
+            post {
+                always {
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Prod E2E', reportTitles: '', useWrapperFileDirectly: true])
+                }
+            }
+        }
+        stage('Prod E2E') {
+            agent {
+                docker {
+                    image "my-playwright"
+                }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = 'http://jenkins-bucket-363786805177-ap-south-1-an.s3-website.ap-south-1.amazonaws.com'
+            }
+
+            steps {
+                    sh '''
+                        npx playwright test  --reporter=html
+                    '''
             }
 
             post {
