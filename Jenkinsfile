@@ -152,7 +152,6 @@ pipeline {
                     sh '''
                         echo "Deploying to production. ${S3_BUCKET}"
                         aws s3 cp build s3://${S3_BUCKET}/ --recursive
-                        npx playwright test  --reporter=html
                     '''
                 }
             }
