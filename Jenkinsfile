@@ -19,6 +19,7 @@ pipeline {
             agent {
                 docker {
                     image "amazon/aws-cli:2.35.23"
+                    args "--entrypoint=''"
                 }
             }
             steps {
