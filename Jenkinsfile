@@ -143,7 +143,6 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = 'http://jenkins-bucket-363786805177-ap-south-1-an.s3-website.ap-south-1.amazonaws.com'
                 S3_BUCKET="jenkins-bucket-363786805177-ap-south-1-an"
             }
 
@@ -151,7 +150,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'AWS_KEY', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
                     sh '''
                         echo "Deploying to production. ${S3_BUCKET}"
-                        aws s3 cp build s3://${S3_BUCKET}/ --recursive
+                        aws s3 sync build s3://${S3_BUCKET}/
                     '''
                 }
             }
@@ -162,6 +161,7 @@ pipeline {
                 }
             }
         }
+
         stage('Prod E2E') {
             agent {
                 docker {
