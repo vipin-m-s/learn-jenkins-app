@@ -15,17 +15,26 @@ pipeline {
         //     }
         // }
 
-        stage('AWS') {
-            agent {
-                docker {
-                    image "amazon/aws-cli:2.35.23"
-                    args "--entrypoint=''"
-                }
-            }
-            steps {
-                sh 'aws --version'
-            }
-        }
+        // stage('AWS') {
+        //     agent {
+        //         docker {
+        //             image "amazon/aws-cli:2.35.23"
+        //             args "--entrypoint=''"
+        //         }
+        //     }
+        //     environment {
+        //         S3_BUCKET="jenkins-bucket-363786805177-ap-south-1-an"
+        //     }
+        //     steps {
+        //         withCredentials([usernamePassword(credentialsId: 'AWS_KEY', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
+        //             sh '''
+        //                 aws s3 ls
+        //                 echo "Hello s2" > index.html
+        //                 aws s3 cp index.html s3://${S3_BUCKET}/index.html
+        //             '''
+        //         }
+        //     }
+        // }
 
         stage('Build') {
             agent {
@@ -98,8 +107,8 @@ pipeline {
         stage('Deploy staging') {
             agent {
                 docker {
-                    image 'my-playwright'
-                    reuseNode true
+                    image "amazon/aws-cli:2.35.23"
+                    args "--entrypoint=''"
                 }
             }
 
@@ -134,18 +143,18 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = 'https://glittery-heliotrope-717dbe.netlify.app'
+                CI_ENVIRONMENT_URL = 'http://jenkins-bucket-363786805177-ap-south-1-an.s3-website.ap-south-1.amazonaws.com'
+                S3_BUCKET="jenkins-bucket-363786805177-ap-south-1-an"
             }
 
             steps {
-                sh '''
-                    node --version
-                    netlify --version
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    netlify status
-                    netlify deploy --dir=build --prod
-                    npx playwright test  --reporter=html
-                '''
+                withCredentials([usernamePassword(credentialsId: 'AWS_KEY', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
+                    sh '''
+                        echo "Deploying to production. ${S3_BUCKET}"
+                        aws s3 cp build s3://${S3_BUCKET}/ --recursive
+                        npx playwright test  --reporter=html
+                    '''
+                }
             }
 
             post {
