@@ -41,7 +41,7 @@ pipeline {
                     npm --version
                     rm -rf node_modules
                     npm ci
-                    REACT_APP_VERSION=$BUILD_ID npm run build
+                    npm run build
                     ls -la
                 '''
             }
@@ -70,28 +70,28 @@ pipeline {
                     }
                 }
 
-                // stage('E2E') {
-                //     agent {
-                //         docker {
-                //             image 'my-playwright'
-                //             reuseNode true
-                //         }
-                //     }
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'my-playwright'
+                            reuseNode true
+                        }
+                    }
 
-                //     steps {
-                //         sh '''
-                //             serve -s build &
-                //             sleep 10
-                //             npx playwright test  --reporter=html
-                //         '''
-                //     }
+                    steps {
+                        sh '''
+                            serve -s build &
+                            sleep 10
+                            npx playwright test  --reporter=html
+                        '''
+                    }
 
-                //     post {
-                //         always {
-                //             publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Local E2E', reportTitles: '', useWrapperFileDirectly: true])
-                //         }
-                //     }
-                // }
+                    post {
+                        always {
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Local E2E', reportTitles: '', useWrapperFileDirectly: true])
+                        }
+                    }
+                }
             }
         }
 
